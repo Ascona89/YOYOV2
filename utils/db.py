@@ -1,3 +1,4 @@
+# utils/db.py
 from supabase import create_client, Client
 import os
 
