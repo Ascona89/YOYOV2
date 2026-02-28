@@ -1,4 +1,7 @@
-streamlit==1.54.0
-supabase==2.28.0
+streamlit
 pandas
-numpy
+geopy
+folium
+streamlit-folium
+fpdf==1.7.2
+supabase
