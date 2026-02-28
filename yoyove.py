@@ -1,101 +1,197 @@
-import streamlit as st
-import pandas as pd
-from datetime import datetime
-from supabase import create_client
+def show_contractnumbers():
+    st.header("📑 Contract Numbers")
 
-# =====================================================
-# 🔐 Passwort
-# =====================================================
-APP_PASSWORD = "mein_geheimes_passwort"  # nur Passwortfeld
+    # ======================
+    # Produkte
+    # ======================
+    df_sw = pd.DataFrame({
+        "Produkt": ["Shop", "App", "POS", "Pay", "Connect", "TSE"],
+        "List_OTF": [999, 49, 999, 49, 0, 0],
+        "List_MRR": [119, 49, 89, 25, 13.72, 12],
+        "Typ": ["Software"] * 6
+    })
 
-# =====================================================
-# 🧠 Supabase Client
-# =====================================================
-supabase = create_client(
-    st.secrets["SUPABASE_URL"],
-    st.secrets["SUPABASE_KEY"]
-)
+    df_hw = pd.DataFrame({
+        "Produkt": ["Ordermanager", "POS inkl 1 Printer", "Cash Drawer", "Extra Printer", "Additional Display", "PAX"],
+        "List_OTF": [299, 1699, 149, 199, 100, 299],
+        "List_MRR": [0] * 6,
+        "Typ": ["Hardware"] * 6
+    })
 
-# =====================================================
-# Session State
-# =====================================================
-st.session_state.setdefault("logged_in", False)
+    # ======================
+    # Session State
+    # ======================
+    for i in range(len(df_sw)):
+        st.session_state.setdefault(f"qty_sw_{i}", 0)
+    for i in range(len(df_hw)):
+        st.session_state.setdefault(f"qty_hw_{i}", 0)
 
-# =====================================================
-# Login-Funktion
-# =====================================================
-def login(password):
-    if password == APP_PASSWORD:
-        st.session_state.logged_in = True
-    else:
-        st.error("❌ Falsches Passwort!")
+    # ======================
+    # Eingaben Gesamt MRR / OTF
+    # ======================
+    col1, col2 = st.columns(2)
+    with col1:
+        total_mrr = st.number_input("💶 Gesamt MRR (€)", min_value=0.0, step=50.0)
+    with col2:
+        total_otf = st.number_input("💶 Gesamt OTF (€)", min_value=0.0, step=100.0)
 
-# =====================================================
-# 🔐 Login abfragen
-# =====================================================
-if not st.session_state.logged_in:
-    st.header("🔐 Passwort eingeben")
-    pw = st.text_input("Passwort:", type="password")
-    if st.button("Login"):
-        login(pw)
-    st.stop()
+    # ======================
+    # Zahlungsoption
+    # ======================
+    st.subheader("💳 Zahlungsoption (optional)")
+    zahlung = st.selectbox(
+        "Auswahl",
+        [
+            "Keine",
+            "Gemischte Zahlung (25% + 12 Wochen) 10%",
+            "Online-Umsatz (100%) 10%",
+            "Monatliche Raten (12 Monate) 35%",
+            "Online-Umsatz (25% + 12 Wochen) 15%"
+        ]
+    )
 
-# =====================================================
-# 🌍 Länder-Auswahl nach Login
-# =====================================================
-st.header("📊 Kalkulations-App")
-countries = ["DE", "FR", "IT", "ES", "PL"]  # Beispiel-Länder
-selected_country = st.selectbox("Wähle ein Land:", countries)
+    prozent_map = {
+        "Keine": 0,
+        "Gemischte Zahlung (25% + 12 Wochen) 10%": 0.10,
+        "Online-Umsatz (100%) 10%": 0.10,
+        "Monatliche Raten (12 Monate) 35%": 0.35,
+        "Online-Umsatz (25% + 12 Wochen) 15%": 0.15
+    }
 
-# =====================================================
-# Landes-spezifische Logik
-# =====================================================
-if selected_country == "DE":
-    st.subheader("🇩🇪 Deutschland")
-    # -------------------------------
-    # Supabase-Daten DE laden
-    # -------------------------------
-    try:
-        response = supabase.table("kalkulationen").select("*").eq("country_code", "DE").execute()
-        data = response.data
-        st.dataframe(pd.DataFrame(data))
-    except Exception as e:
-        st.error(f"Fehler beim Laden der Daten DE: {e}")
+    prozent = prozent_map[zahlung]
+    otf_adjusted = total_otf * (1 - prozent)
+    st.caption(f"Verwendete OTF für Kalkulation: **{round(otf_adjusted)} €**")
 
-    # Hier DE-spezifische App-Funktionen
-    st.info("DE: Hier kannst du DE-spezifische Berechnungen oder Visualisierungen einfügen")
+    # ======================
+    # Mengen Software
+    # ======================
+    st.subheader("💻 Software")
+    cols = st.columns(len(df_sw))
+    for i, row in df_sw.iterrows():
+        with cols[i]:
+            st.session_state[f"qty_sw_{i}"] = st.number_input(
+                row["Produkt"], min_value=0, step=1,
+                value=st.session_state[f"qty_sw_{i}"]
+            )
 
-elif selected_country == "FR":
-    st.subheader("🇫🇷 Frankreich")
-    # -------------------------------
-    # Supabase-Daten FR laden
-    # -------------------------------
-    try:
-        response = supabase.table("kalkulationen").select("*").eq("country_code", "FR").execute()
-        data = response.data
-        st.dataframe(pd.DataFrame(data))
-    except Exception as e:
-        st.error(f"Fehler beim Laden der Daten FR: {e}")
+    # ======================
+    # Mengen Hardware
+    # ======================
+    st.subheader("🖨️ Hardware")
+    cols = st.columns(len(df_hw))
+    for i, row in df_hw.iterrows():
+        with cols[i]:
+            st.session_state[f"qty_hw_{i}"] = st.number_input(
+                row["Produkt"], min_value=0, step=1,
+                value=st.session_state[f"qty_hw_{i}"]
+            )
 
-    # Hier FR-spezifische App-Funktionen
-    st.info("FR: Hier kannst du FR-spezifische Berechnungen oder Visualisierungen einfügen")
+    df_sw["Menge"] = [st.session_state[f"qty_sw_{i}"] for i in range(len(df_sw))]
+    df_hw["Menge"] = [st.session_state[f"qty_hw_{i}"] for i in range(len(df_hw))]
 
-elif selected_country == "IT":
-    st.subheader("🇮🇹 Italien")
-    # Copy-Paste Block für Italien
-    # ...
+    # ======================
+    # OTF Verteilung
+    # ======================
+    base = (
+        (df_sw["Menge"] * df_sw["List_OTF"]).sum() +
+        (df_hw["Menge"] * df_hw["List_OTF"]).sum()
+    )
 
-elif selected_country == "ES":
-    st.subheader("🇪🇸 Spanien")
-    # Copy-Paste Block für Spanien
-    # ...
+    factor = otf_adjusted / base if base > 0 else 0
 
-elif selected_country == "PL":
-    st.subheader("🇵🇱 Polen")
-    # Copy-Paste Block für Polen
-    # ...
+    df_sw["OTF"] = (df_sw["Menge"] * df_sw["List_OTF"] * factor).round(0)
+    df_hw["OTF"] = (df_hw["Menge"] * df_hw["List_OTF"] * factor).round(0)
 
-# =====================================================
-# 🔧 Allgemeine App-Funktionalität (optional)
-# =====================================================
-st.info("Hier kannst du Funktionen einfügen, die für alle Länder gleich sind")
+    # ======================
+    # 🔥 MRR Berechnung
+    # ======================
+    connect_qty = df_sw.loc[df_sw["Produkt"] == "Connect", "Menge"].values[0]
+    tse_qty = df_sw.loc[df_sw["Produkt"] == "TSE", "Menge"].values[0]
+
+    connect_total = connect_qty * 13.72
+    tse_total = tse_qty * 12.00
+
+    fixed_total = connect_total + tse_total
+    remaining_mrr = max(total_mrr - fixed_total, 0)
+
+    proportional_df = df_sw[~df_sw["Produkt"].isin(["Connect", "TSE"])]
+    mrr_base = (proportional_df["Menge"] * proportional_df["List_MRR"]).sum()
+
+    mrr_factor = remaining_mrr / mrr_base if mrr_base > 0 else 0
+
+    df_sw["MRR_Monat"] = 0.0
+    df_sw["MRR_Woche"] = 0.0
+
+    for i, row in proportional_df.iterrows():
+        monat = row["Menge"] * row["List_MRR"] * mrr_factor
+        df_sw.loc[i, "MRR_Monat"] = round(monat, 2)
+        df_sw.loc[i, "MRR_Woche"] = round(monat / 4, 2)
+
+    df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Monat"] = connect_total
+    df_sw.loc[df_sw["Produkt"] == "Connect", "MRR_Woche"] = connect_qty * 3.43
+
+    df_sw.loc[df_sw["Produkt"] == "TSE", "MRR_Monat"] = tse_total
+    df_sw.loc[df_sw["Produkt"] == "TSE", "MRR_Woche"] = tse_qty * 3.00
+
+    df_hw["MRR_Monat"] = 0.0
+    df_hw["MRR_Woche"] = 0.0
+
+    # =====================================================
+    # 🧾 Ergebnisübersicht
+    # =====================================================
+    def get_row(df, produkt):
+        row = df[df["Produkt"] == produkt]
+        if not row.empty:
+            return row.iloc[0]
+        return None
+
+    shop = get_row(df_sw, "Shop")
+    app = get_row(df_sw, "App")
+    pos = get_row(df_sw, "POS")
+    pay = get_row(df_sw, "Pay")
+    tse = get_row(df_sw, "TSE")
+
+    order_manager = get_row(df_hw, "Ordermanager")
+    pos_printer_bundle = get_row(df_hw, "POS inkl 1 Printer")
+    cash_drawer = get_row(df_hw, "Cash Drawer")
+    extra_printer = get_row(df_hw, "Extra Printer")
+    display = get_row(df_hw, "Additional Display")
+    pax = get_row(df_hw, "PAX")
+
+    st.markdown("---")
+    st.header("📊 Ergebnisübersicht")
+
+    st.subheader("🛒 Preise Shop")
+    st.write(f"Webshop WRR: {(shop['MRR_Woche'] if shop is not None else 0):.2f} €")
+    st.write(f"Appshop WRR: {(app['MRR_Woche'] if app is not None else 0):.2f} €")
+    st.write(f"Shop Anmeldegebühren: {((shop['OTF'] if shop is not None else 0) + (app['OTF'] if app is not None else 0)):.0f} €")
+
+    st.subheader("🖥️ YOYO POS")
+    st.write(f"YOYO POS Abonnementgebühr: {(pos['MRR_Woche'] if pos is not None else 0):.2f} €")
+    st.write(f"YOYO POS Anmeldegebühr: {(pos['OTF'] if pos is not None else 0):.0f} €")
+    st.write(f"TSE: {(tse['MRR_Woche'] if tse is not None else 0):.2f} €")
+
+    st.subheader("💳 YOYOPAY")
+    st.write(f"Tägliche Abonnement Festgebühr: {((pay['MRR_Woche']/7) if pay is not None else 0):.2f} €")
+    st.write(f"Feste Anmeldegebühr: {(pay['OTF'] if pay is not None else 0):.0f} €")
+
+    st.subheader("🖨️ Hardware Komponenten")
+
+    def hw_display(row, label):
+        if row is None or row["Menge"] == 0:
+            return
+        menge = int(row["Menge"])
+        gesamt = int(row["OTF"])
+        einzel = int(gesamt / menge) if menge > 0 else 0
+
+        if menge == 1:
+            st.write(f"{label}: {gesamt} €")
+        else:
+            st.write(f"{label}: {gesamt} € ({menge}x {einzel} €)")
+
+    hw_display(pos_printer_bundle, "Sunmi D3 Pro")
+    hw_display(display, "Kundendisplay")
+    hw_display(cash_drawer, "Cash Drawer")
+    hw_display(extra_printer, "POS Printer")
+    hw_display(order_manager, "Ordermanager")
+    hw_display(pax, "Kartenterminal")
